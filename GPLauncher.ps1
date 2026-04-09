@@ -254,7 +254,9 @@ $dbIconDrawing = New-DbIconDrawing
     Width="380" Height="540"
     WindowStartupLocation="CenterScreen"
     ResizeMode="NoResize"
-    Background="#1a1a2e"
+    WindowStyle="None"
+    AllowsTransparency="True"
+    Background="Transparent"
     Foreground="White"
     FontFamily="Segoe UI">
 
@@ -320,6 +322,7 @@ $dbIconDrawing = New-DbIconDrawing
         </Style>
     </Window.Resources>
 
+    <Border Background="#1a1a2e" CornerRadius="12" Padding="0">
     <Grid Margin="24,20,24,16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -331,11 +334,16 @@ $dbIconDrawing = New-DbIconDrawing
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <TextBlock Grid.Row="0"
-                   Text="GhostPractice"
-                   FontSize="22" FontWeight="Bold"
-                   Foreground="White"
-                   HorizontalAlignment="Center"/>
+        <Grid Grid.Row="0" x:Name="TitleBar" Margin="0,0,0,0">
+            <TextBlock Text="GhostPractice"
+                       FontSize="22" FontWeight="Bold"
+                       Foreground="White"
+                       HorizontalAlignment="Center"/>
+            <TextBlock x:Name="CloseBtn" Text="X"
+                       FontSize="14" Foreground="#666680"
+                       HorizontalAlignment="Right" VerticalAlignment="Top"
+                       Cursor="Hand" Margin="0,-4,0,0"/>
+        </Grid>
 
         <TextBlock Grid.Row="1"
                    Text="Select a database to launch"
@@ -384,6 +392,7 @@ $dbIconDrawing = New-DbIconDrawing
                    HorizontalAlignment="Center"
                    Margin="0,8,0,0"/>
     </Grid>
+    </Border>
 </Window>
 "@
 
@@ -394,14 +403,46 @@ function Show-SettingsWindow($parentWindow, $cfg) {
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Settings - Beta 0.0.1"
-    Width="360" Height="480"
+    Width="360" Height="500"
     WindowStartupLocation="CenterOwner"
     ResizeMode="NoResize"
-    Background="#1a1a2e"
+    WindowStyle="None"
+    AllowsTransparency="True"
+    Background="Transparent"
     Foreground="White"
     FontFamily="Segoe UI">
 
-    <Grid Margin="20">
+    <Window.Resources>
+        <Style x:Key="SmallBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                Padding="12,6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.7"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border Background="#1a1a2e" CornerRadius="12" Padding="20">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -412,7 +453,12 @@ function Show-SettingsWindow($parentWindow, $cfg) {
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Server" FontSize="12" Foreground="#888" Margin="0,0,0,4"/>
+        <!-- Draggable title bar -->
+        <TextBlock Grid.Row="0" x:Name="SettingsTitleBar" Text="Settings"
+                   FontSize="16" FontWeight="Bold" Foreground="White"
+                   Margin="0,0,0,16" HorizontalAlignment="Center"/>
+
+        <TextBlock Grid.Row="0" Text="Server" FontSize="12" Foreground="#888" Margin="0,30,0,4"/>
         <TextBox Grid.Row="1" x:Name="ServerBox"
                  Background="#16213e" Foreground="White" BorderBrush="#2a2a4a"
                  FontSize="13" Padding="8,6" Margin="0,0,0,16"/>
@@ -437,27 +483,27 @@ function Show-SettingsWindow($parentWindow, $cfg) {
             <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
                 <TextBox x:Name="NewDbBox"
                          Background="#16213e" Foreground="White" BorderBrush="#2a2a4a"
-                         FontSize="13" Padding="8,4" Width="180"/>
+                         FontSize="13" Padding="8,4" Width="160"/>
                 <Button x:Name="AddDbBtn" Content="Add" Margin="8,0,0,0"
-                        Background="#0f3460" Foreground="White" Padding="12,4"
-                        BorderThickness="0" Cursor="Hand"/>
+                        Background="#0f3460" Style="{StaticResource SmallBtn}"/>
                 <Button x:Name="RemoveDbBtn" Content="Remove" Margin="8,0,0,0"
-                        Background="#e94560" Foreground="White" Padding="12,4"
-                        BorderThickness="0" Cursor="Hand"/>
+                        Background="#e94560" Style="{StaticResource SmallBtn}"/>
             </StackPanel>
         </Grid>
 
-        <Button Grid.Row="6" x:Name="SaveBtn" Content="Save"
-                Background="#0f3460" Foreground="White" FontSize="14" FontWeight="SemiBold"
-                Padding="0,8" Margin="0,16,0,0" BorderThickness="0" Cursor="Hand"/>
+        <Button Grid.Row="5" x:Name="SaveBtn" Content="Save"
+                Background="#0f3460" Foreground="White" FontSize="13" FontWeight="SemiBold"
+                Width="100" HorizontalAlignment="Center"
+                Margin="0,16,0,0" Style="{StaticResource SmallBtn}"/>
 
         <!-- About -->
-        <StackPanel Grid.Row="6" Margin="0,56,0,0" HorizontalAlignment="Center">
+        <StackPanel Grid.Row="6" Margin="0,12,0,0" HorizontalAlignment="Center">
             <TextBlock Text="GP Launcher Beta 0.0.1" FontSize="10" Foreground="#444460" HorizontalAlignment="Center"/>
             <TextBlock Text="Created by AZ" FontSize="10" Foreground="#444460" HorizontalAlignment="Center" Margin="0,2,0,0"/>
             <TextBlock Text="Report issues to aubrey.zemba@dyedurham.com" FontSize="10" Foreground="#555580" HorizontalAlignment="Center" Margin="0,2,0,0"/>
         </StackPanel>
     </Grid>
+    </Border>
 </Window>
 "@
 
@@ -471,6 +517,10 @@ function Show-SettingsWindow($parentWindow, $cfg) {
     $addDbBtn = $settingsWin.FindName("AddDbBtn")
     $removeDbBtn = $settingsWin.FindName("RemoveDbBtn")
     $saveBtn = $settingsWin.FindName("SaveBtn")
+    $settingsTitleBar = $settingsWin.FindName("SettingsTitleBar")
+
+    # Drag settings window
+    $settingsTitleBar.Add_MouseLeftButtonDown({ $settingsWin.DragMove() })
 
     $serverBox.Text = $cfg.server
     $gpPathBox.Text = $cfg.gpPath
@@ -523,6 +573,16 @@ $dbPanel = $window.FindName("DbPanel")
 $statusText = $window.FindName("StatusText")
 $serverLabel = $window.FindName("ServerLabel")
 $settingsBtn = $window.FindName("SettingsBtn")
+$titleBar = $window.FindName("TitleBar")
+$closeBtn = $window.FindName("CloseBtn")
+
+# Drag window by title area
+$titleBar.Add_MouseLeftButtonDown({ $window.DragMove() })
+
+# Close button
+$closeBtn.Add_MouseLeftButtonDown({ $window.Close() })
+$closeBtn.Add_MouseEnter({ $closeBtn.Foreground = [System.Windows.Media.Brushes]::White })
+$closeBtn.Add_MouseLeave({ $closeBtn.Foreground = (New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString('#666680'))) })
 
 $serverLabel.Text = "Server: $($Config.server)"
 
