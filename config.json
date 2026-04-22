@@ -1,18 +1,38 @@
-{
-  "server": "10.10.10.21",
-  "gpPath": "C:\\Program Files (x86)\\Korbicom\\GhostPractice\\GhostPractice.exe",
-  "databases": [
-    "GD",
-    "GhostpracticeCanada",
-    "KLS",
-    "Korbicom",
-    "KorbicomSA"
-  ],
-  "usage": {
-    "GD": 0,
-    "GhostpracticeCanada": 0,
-    "KLS": 0,
-    "Korbicom": 0,
-    "KorbicomSA": 0
-  }
+﻿{
+    "gpPath":  "C:\\Program Files (x86)\\Korbicom\\GhostPractice\\GhostPractice.exe",
+    "connections":  [
+                        {
+                            "name":  "GD",
+                            "server":  "10.10.10.21",
+                            "database":  "GD"
+                        },
+                        {
+                            "name":  "GhostpracticeCanada",
+                            "server":  "10.10.10.21",
+                            "database":  "GhostpracticeCanada"
+                        },
+                        {
+                            "name":  "KLS",
+                            "server":  "10.10.10.21",
+                            "database":  "KLS"
+                        },
+                        {
+                            "name":  "Korbicom",
+                            "server":  "10.10.10.21",
+                            "database":  "Korbicom"
+                        },
+                        {
+                            "name":  "KorbicomSA",
+                            "server":  "10.10.10.21",
+                            "database":  "KorbicomSA"
+                        }
+                    ],
+    "usage":  {
+                  "GD":  0,
+                  "GhostpracticeCanada":  0,
+                  "KLS":  0,
+                  "Korbicom":  0,
+                  "KorbicomSA":  0
+              },
+    "lastLaunched":  ""
 }
