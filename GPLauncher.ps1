@@ -33,7 +33,7 @@ $IconPath   = Join-Path $ScriptDir "icon.ico"
 $LogoPath   = Join-Path $ScriptDir "gp-logo.png"
 $LogPath    = Join-Path $ScriptDir "gplauncher.log"
 
-$AppVersion = "Beta 0.0.7"
+$AppVersion = "Beta 0.0.8"
 
 # -----------------------------------------------------------------------------
 # Brand colors (from the official GhostPractice logo).
@@ -104,11 +104,12 @@ function Save-Config($cfg) {
 
 # Factory for a connection record. Always use this rather than building hashtables
 # inline so every connection has the exact same property names/order.
-function New-Connection($name, $server, $database) {
+function New-Connection($name, $server, $database, $regenerateReport = $true) {
     return [PSCustomObject]@{
-        name     = $name      # Display label shown on the launcher button
-        server   = $server    # SQL Server\Instance (e.g. "10.10.10.21\SQLEXPRESS2022")
-        database = $database  # Database name on that server
+        name             = $name              # Display label shown on the launcher button
+        server           = $server            # SQL Server\Instance (e.g. "10.10.10.21\SQLEXPRESS2022")
+        database         = $database          # Database name on that server
+        regenerateReport = [bool]$regenerateReport  # Per-connection toggle for RegenerateReport in user.config
     }
 }
 
@@ -150,10 +151,19 @@ function Load-Config {
     if ($cfg.PSObject.Properties['databases']) { $cfg.PSObject.Properties.Remove('databases'); $needsSave = $true }
 
     # --- Self-healing: drop any null/malformed connection entries ---
+    # Also back-fills the per-connection regenerateReport flag (default true,
+    # matching the pre-0.0.8 behavior of always-regenerate) for any record
+    # that doesn't have it yet.
     $clean = New-Object System.Collections.ArrayList
     foreach ($c in @($cfg.connections)) {
         if ($c -and $c.PSObject.Properties['name'] -and $c.name) {
-            [void]$clean.Add((New-Connection $c.name $c.server $c.database))
+            $regen = $true
+            if ($c.PSObject.Properties['regenerateReport']) {
+                $regen = [bool]$c.regenerateReport
+            } else {
+                $needsSave = $true   # We're about to add the missing field.
+            }
+            [void]$clean.Add((New-Connection $c.name $c.server $c.database $regen))
         }
     }
     if ($clean.Count -ne (@($cfg.connections)).Count) { $needsSave = $true }
@@ -220,18 +230,19 @@ function Get-GPConfigTargetPath {
 #   Server             - chosen connection's server\instance
 #   Database           - chosen connection's database
 #   ApplicationVersion - the auto-detected installed GP version
-#   RegenerateReport   - forced True (per business requirement, every launch)
+#   RegenerateReport   - per-connection: True or False from $regenerateReport
 #
 # Anything else in user.config is left exactly as GP wrote it.
 # -----------------------------------------------------------------------------
-function Update-UserConfig($configFile, $server, $database, $version) {
+function Update-UserConfig($configFile, $server, $database, $version, $regenerateReport) {
     [xml]$doc = Get-Content $configFile -Raw
 
+    $regenStr = if ($regenerateReport) { 'True' } else { 'False' }
     $updates = [ordered]@{
         'Server'             = $server
         'Database'           = $database
         'ApplicationVersion' = $version
-        'RegenerateReport'   = 'True'
+        'RegenerateReport'   = $regenStr
     }
 
     # We need this if we have to insert a missing <setting> node.
@@ -291,7 +302,8 @@ function Backup-UserConfigOnce($configFile) {
 # -----------------------------------------------------------------------------
 # Build the user.config XML that GhostPractice reads on startup.
 # -----------------------------------------------------------------------------
-function Build-UserConfig($server, $database, $version) {
+function Build-UserConfig($server, $database, $version, $regenerateReport = $true) {
+    $regenStr = if ($regenerateReport) { 'True' } else { 'False' }
     return @"
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
@@ -325,7 +337,7 @@ function Build-UserConfig($server, $database, $version) {
             <setting name="GenerateDataset" serializeAs="String"><value>False</value></setting>
             <setting name="LogProgress" serializeAs="String"><value>False</value></setting>
             <setting name="EnableEditingE4XML" serializeAs="String"><value>False</value></setting>
-            <setting name="RegenerateReport" serializeAs="String"><value>True</value></setting>
+            <setting name="RegenerateReport" serializeAs="String"><value>$regenStr</value></setting>
             <setting name="AllowAgingRecalculate" serializeAs="String"><value>False</value></setting>
             <setting name="ShowWarningForUncomittedTransactions" serializeAs="String"><value>False</value></setting>
             <setting name="ImageTextAlignment" serializeAs="String"><value>1</value></setting>
@@ -802,7 +814,7 @@ function Show-ConnectionDialog($parentWindow, $existing, $existingNames) {
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="$title"
-    Width="380" Height="380"
+    Width="380" Height="420"
     WindowStartupLocation="CenterOwner"
     ResizeMode="NoResize"
     WindowStyle="None"
@@ -868,6 +880,13 @@ function Show-ConnectionDialog($parentWindow, $existing, $existingNames) {
                            Background="#16213e" Foreground="White" BorderBrush="#2a2a4a"
                            FontSize="13" Padding="8,6" Margin="0,0,0,12"/>
 
+                <!-- Row 7: regenerate-reports checkbox. -->
+                <CheckBox Grid.Row="7" x:Name="RegenChk"
+                          Content="Regenerate reports on launch"
+                          Foreground="#cfcfdc" FontSize="12"
+                          Margin="0,4,0,8"
+                          ToolTip="Sets RegenerateReport=True in GhostPractice's user.config every time you launch this connection. Leave on if this database needs reports refreshed; turn off for production databases where you don't want reports rebuilt every launch."/>
+
                 <TextBlock Grid.Row="8" x:Name="ErrorText" Text="" FontSize="11"
                            Foreground="$BrandPink" HorizontalAlignment="Center" Margin="0,4,0,8" TextWrapping="Wrap"/>
 
@@ -889,6 +908,7 @@ function Show-ConnectionDialog($parentWindow, $existing, $existingNames) {
     $nameBox   = $dlg.FindName("NameBox")
     $serverBox = $dlg.FindName("ServerBox")
     $dbBox     = $dlg.FindName("DbBox")
+    $regenChk  = $dlg.FindName("RegenChk")
     $errorText = $dlg.FindName("ErrorText")
     $cancelBtn = $dlg.FindName("CancelBtn")
     $saveBtn   = $dlg.FindName("SaveBtn")
@@ -901,6 +921,11 @@ function Show-ConnectionDialog($parentWindow, $existing, $existingNames) {
         $nameBox.Text   = $existing.name
         $serverBox.Text = $existing.server
         $dbBox.Text     = $existing.database
+        # Honor whatever the existing record says (default to true if missing).
+        $regenChk.IsChecked = if ($existing.PSObject.Properties['regenerateReport']) { [bool]$existing.regenerateReport } else { $true }
+    } else {
+        # Brand-new connection - default to on, matching pre-0.0.8 behavior.
+        $regenChk.IsChecked = $true
     }
 
     $cancelBtn.Add_Click({ $dlg.Close() })
@@ -931,7 +956,7 @@ function Show-ConnectionDialog($parentWindow, $existing, $existingNames) {
             $errorText.Text = "A connection named '$n' already exists."
             return
         }
-        $script:DialogConnResult = New-Connection $n $s $d
+        $script:DialogConnResult = New-Connection $n $s $d ([bool]$regenChk.IsChecked)
         $dlg.Close()
     })
 
@@ -1185,7 +1210,7 @@ function Show-SettingsWindow($parentWindow, $cfg) {
 
     foreach ($c in @($cfg.connections)) {
         if ($c -and $c.name) {
-            [void]$connList.Items.Add((New-ConnectionListItem (New-Connection $c.name $c.server $c.database)))
+            [void]$connList.Items.Add((New-ConnectionListItem (New-Connection $c.name $c.server $c.database ([bool]$c.regenerateReport))))
         }
     }
     & $script:RefreshEmptyMsg
@@ -1238,7 +1263,7 @@ function Show-SettingsWindow($parentWindow, $cfg) {
             foreach ($it in $connList.Items) {
                 $t = $it.Tag
                 if ($t -and $t.name) {
-                    [void]$list.Add((New-Connection $t.name $t.server $t.database))
+                    [void]$list.Add((New-Connection $t.name $t.server $t.database ([bool]$t.regenerateReport)))
                 }
             }
 
@@ -1447,7 +1472,8 @@ function New-ConnectionButton($conn, $isLast) {
     $btn = New-Object System.Windows.Controls.Button
     $btn.Style = $window.FindResource("DbButton")
     $btn.Tag   = $conn
-    $btn.ToolTip = "$($conn.server)`n$($conn.database)"
+    $regenLine = if ($conn.regenerateReport) { "Reports: regenerate on launch" } else { "Reports: don't regenerate" }
+    $btn.ToolTip = "$($conn.server)`n$($conn.database)`n$regenLine"
 
     # Outer 3-column layout: stripe | content | last-indicator
     $grid = New-Object System.Windows.Controls.Grid
@@ -1623,18 +1649,19 @@ function Populate-Connections {
 
             $version = Split-Path $targetDir -Leaf
             $configFile = Join-Path $targetDir "user.config"
+            $regen = if ($selected.PSObject.Properties['regenerateReport']) { [bool]$selected.regenerateReport } else { $true }
 
             # Surgical edit if user.config already exists; full-template fallback
             # only for brand-new installs that haven't run GP yet.
             try {
                 if (Test-Path $configFile) {
                     Backup-UserConfigOnce $configFile
-                    Update-UserConfig $configFile $selected.server $selected.database $version
-                    Write-Log ("Updated user.config: Server={0}  Database={1}  Version={2}  RegenerateReport=True" -f $selected.server, $selected.database, $version)
+                    Update-UserConfig $configFile $selected.server $selected.database $version $regen
+                    Write-Log ("Updated user.config: Server={0}  Database={1}  Version={2}  RegenerateReport={3}" -f $selected.server, $selected.database, $version, $regen)
                 } else {
-                    $xml = Build-UserConfig $selected.server $selected.database $version
+                    $xml = Build-UserConfig $selected.server $selected.database $version $regen
                     $xml | Set-Content $configFile -Encoding UTF8 -Force
-                    Write-Log ("Created new user.config from template (Server={0}, Database={1})" -f $selected.server, $selected.database)
+                    Write-Log ("Created new user.config from template (Server={0}, Database={1}, RegenerateReport={2})" -f $selected.server, $selected.database, $regen)
                 }
             }
             catch { Show-Status "ERR" "Error updating config: $_" '#ff7b72'; return }

@@ -2,7 +2,7 @@
 
 GhostPractice Database Launcher — a polished WPF UI for switching between GP databases, even across different SQL Server instances.
 
-**Beta 0.0.7** | Created by AZ
+**Beta 0.0.8** | Created by AZ
 
 ## What it does
 
@@ -39,11 +39,11 @@ Edit via the in-app Settings window (recommended), or hand-edit `config.json`:
 {
   "gpPath": "C:\\Program Files (x86)\\Korbicom\\GhostPractice\\GhostPractice.exe",
   "connections": [
-    { "name": "GD (Express 2022)",  "server": "10.10.10.21\\SQLEXPRESS2022", "database": "GD" },
-    { "name": "KLS (Express 2017)", "server": "10.10.10.21\\SQLEXPRESS2017", "database": "KLS" },
-    { "name": "Korbicom",           "server": "10.10.10.21",                "database": "Korbicom" }
+    { "name": "GD (Express 2022)",  "server": "10.10.10.21\\SQLEXPRESS2022", "database": "GD",       "regenerateReport": true  },
+    { "name": "KLS (Express 2017)", "server": "10.10.10.21\\SQLEXPRESS2017", "database": "KLS",      "regenerateReport": true  },
+    { "name": "Korbicom (Prod)",    "server": "10.10.10.21",                "database": "Korbicom", "regenerateReport": false }
   ],
-  "usage":        { "GD (Express 2022)": 0, "KLS (Express 2017)": 0, "Korbicom": 0 },
+  "usage":        { "GD (Express 2022)": 0, "KLS (Express 2017)": 0, "Korbicom (Prod)": 0 },
   "lastLaunched": ""
 }
 ```
@@ -54,12 +54,14 @@ The `server` field accepts anything GhostPractice itself accepts: a hostname/IP,
 
 When you click a connection, the launcher does **not** overwrite the entire `user.config` file. It performs a surgical XML edit, changing **only** these four fields and leaving every other GP user preference (form geometry, column widths, `ApplicationDeviceID`, `HasUpgraded`, etc.) exactly as GP wrote them:
 
-| Field                | Value                                                         |
-|----------------------|---------------------------------------------------------------|
-| `Server`             | The selected connection's server\instance                     |
-| `Database`           | The selected connection's database                            |
-| `ApplicationVersion` | The auto-detected GP version (folder name under `Korbitec`)   |
-| `RegenerateReport`   | Always set to `True` (per business rule, every launch)        |
+| Field                | Value                                                            |
+|----------------------|------------------------------------------------------------------|
+| `Server`             | The selected connection's server\instance                        |
+| `Database`           | The selected connection's database                               |
+| `ApplicationVersion` | The auto-detected GP version (folder name under `Korbitec`)      |
+| `RegenerateReport`   | `True` or `False`, taken from each connection's per-DB checkbox  |
+
+The **Regenerate reports on launch** checkbox lives in the Add/Edit Connection dialog in Settings. Default for new connections is on (matches the pre-0.0.8 always-regenerate behaviour). Turn it off for production databases that don't need reports rebuilt every launch.
 
 A backup is taken once per launch session as `user.config.bak` next to the original, before the first edit, so you can roll back if anything goes sideways. If `user.config` doesn't exist yet (brand-new GP install that hasn't run), the launcher falls back to writing a full template once.
 
